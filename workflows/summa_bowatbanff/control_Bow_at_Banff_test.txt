@@ -6,8 +6,8 @@
 
 
 # Modeling domain settings
-root_path                   | /Users/ayx374/Documents/project/chwarm_test_results      # Root folder where data will be stored.
-domain_name                 | BowAtBanff                                  # Used as part of the root folder name for the prepared data.
+root_path                   | /Users/kak136/Downloads/cwarhm-summa-results		# Root folder where data will be stored.
+domain_name                 | BowAtBanff				# Used as part of the root folder name for the prepared data.
 
 
 # Shapefile settings - SUMMA catchment file

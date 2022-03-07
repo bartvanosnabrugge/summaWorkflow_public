@@ -9,16 +9,13 @@ from cwarhm.wrappers import cwarhm_summa as fm
 import cwarhm.util.util as utl
 
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
-cwarhm_summa_folder = "/Users/ayx374/Documents/GitHub/forks/summaWorkflow_public/dependencies/cwarhm-summa"
+cwarhm_summa_folder = "/Users/kak136/Documents/github-repos/summaWorkflow_public/dependencies/cwarhm-summa"
 #cwarhm_summa_folder = "./dependencies/cwarhm-summa"
-results_folder_path = Path("/Users/ayx374/Documents/project/chwarm_test_results/domain_BowAtBanff")
-test_data_path = Path("/Users/ayx374/Documents/project/chwarm_test_data/domain_BowAtBanff")
+results_folder_path = Path("/Users/kak136/Downloads/cwarhm-summa-results/domain_BowAtBanff/")
+test_data_path = Path("/Users/kak136/Downloads/cwarhm_test_data/cwarhm_test_data/domain_BowAtBanff/")
 
 # set control file to use
 fm.change_control_file_in_submodule(cwarhm_summa_folder, 'control_Bow_at_Banff_test.txt')
-# read control file to use with functions
-control_options = utl.read_summa_workflow_control_file('/Users/ayx374/Documents/GitHub/forks/summaWorkflow_public/dependencies/cwarhm-summa/0_control_files/control_Bow_at_Banff_test.txt')
-
 
 reset_test = True
 if reset_test:
@@ -33,6 +30,9 @@ if reset_test:
     fm.create_folder_structure(cwarhm_summa_folder)
 
 #%% start example
+
+# read control file to use with functions
+control_options = utl.read_summa_workflow_control_file('/Users/kak136/Documents/github-repos/summaWorkflow_public/dependencies/cwarhm-summa/0_control_files/control_Bow_at_Banff_test.txt')
 
 #%% download data (downloads not included in example) - data specific input layer - part 1
 ## the lines below are included if the test data is not available locally
