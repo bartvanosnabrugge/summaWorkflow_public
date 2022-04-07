@@ -1,0 +1,83 @@
+root: /Users/ayx374/Documents/GitHub/fairymwah/tests/example1_mwah_bowatbanff_no_download/results/domain_BowAtBanff
+
+era5:
+  path: forcing/2_merged_data/ERA5_merged_{year}{month}.nc
+  data_type: RasterDataset
+  driver: netcdf
+  kwargs:
+    chunks: {time: 100, longitude: 120, latitude: 125 }
+    decode_times: True
+    parallel: True
+  crs: 4326
+  rename:
+    tp: precip
+    t2m: temp
+    tmin: temp_min
+    tmax: temp_max
+    msl: press_msl
+    ssrd: kin
+    tisr: kout
+  unit_mult:
+    precip: 1000 # mm/day
+    press_msl: 0.01  # hPa
+    kin: 0.000277778  # J hr-1
+    kout: 0.000277778  # J hr-1
+  unit_add:
+    temp: -273.15  # deg. C.
+    temp_min: -273.15  # deg. C.
+    temp_max: -273.15  # deg. C.
+  meta:
+    category: meteo
+    history: Extracted from Copernicus Climate Data Store
+    source_version: ERA5 daily data on pressure levels
+    source_url: https://doi.org/10.24381/cds.bd0915c6
+    paper_ref: Hersbach et al. (2019)
+    paper_doi: 10.1002/qj.3803
+    source_license: https://cds.climate.copernicus.eu/cdsapp/#!/terms/licence-to-use-copernicus-products
+
+merit_hydro_elv_base:
+  crs: 4326
+  data_type: RasterDataset
+  driver: raster
+  meta:
+    category: topography
+    paper_doi: 10.1029/2019WR024873
+    paper_ref: Yamazaki et al. (2019)
+    source_license: CC-BY-NC 4.0 or ODbL 1.0
+    source_url: http://hydro.iis.u-tokyo.ac.jp/~yamadai/MERIT_Hydro
+    source_version: 1.0
+  path: parameters/dem/2_MERIT_hydro_unpacked_data/elv_n30w120/*.tif
+
+merit_hydro_vrt:
+  path: parameters/dem/3_vrt/{variable}.vrt
+  data_type: RasterDataset
+  driver: raster
+  crs: 4326
+  kwargs:
+    chunks: {x: 6000, y: 6000}
+  rename:
+    elv: elevtn
+  meta:
+    category: topography
+    source_version: 1.0
+    paper_doi: 10.1029/2019WR024873
+    paper_ref: Dai Yamazaki
+    source_url: http://hydro.iis.u-tokyo.ac.jp/~yamadai/MERIT_Hydro
+    source_license: CC-BY-NC 4.0 or ODbL 1.0
+
+merit_hydro_vrt_from_base:
+  path: parameters/dem/3_vrt/{variable}.vrt
+  data_type: RasterDataset
+  driver: raster
+  crs: 4326
+  kwargs:
+    chunks: {x: 6000, y: 6000}
+  rename:
+    elv: elevtn
+  meta:
+    category: topography
+    source_version: 1.0
+    paper_doi: 10.1029/2019WR024873
+    paper_ref: Dai Yamazaki
+    source_url: http://hydro.iis.u-tokyo.ac.jp/~yamadai/MERIT_Hydro
+    source_license: CC-BY-NC 4.0 or ODbL 1.0
