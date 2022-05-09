@@ -1,0 +1,17 @@
+name: cwarhm-env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python
+  - pip
+  - jupyter # for visualization
+  - nbconvert # for running notebooks from terminal
+  - hydromt # this also installs dependencies as xarray, numpy etc.
+  - sphinx # for documentation
+  - pathlib
+  - pip:
+    - easymore
+    - sphinx-rtd-theme # for read the docs lay-out
+    - black # for code reformatting
+    - cdsapi # for ERA5 downloading

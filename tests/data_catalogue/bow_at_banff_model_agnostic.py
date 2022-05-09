@@ -9,8 +9,6 @@ from cwarhm.model_agnostic_processing import HRU as hru
 import cwarhm.util.util as utl
 
 # additional functions (to be placed elsewhere)
-#TODO find way to add shapefile geometry to netcdf.
-
 #%% start example
 
 # read control file
