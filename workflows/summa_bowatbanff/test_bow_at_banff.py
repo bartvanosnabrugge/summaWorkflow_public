@@ -1,23 +1,27 @@
 import os
-from pathlib import Path
 import shutil
 import sys
 
 #%%
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+from pathlib import Path
 from cwarhm.wrappers import cwarhm_summa as fm
 from cwarhm.model_specific_processing import mizuroute as mzr
 from cwarhm.data_specific_processing import era5
+from cwarhm.data_specific_processing import merit
 import cwarhm.util.util as utl
 
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
-cwarhm_summa_folder = "/Users/localuser/Github/CH-Earth/summaWorkflow_public/dependencies/cwarhm-summa"
-#cwarhm_summa_folder = "./dependencies/cwarhm-summa"
-results_folder_path = Path("/Users/localuser/Research/chwarm_test_results/domain_BowAtBanff")
-test_data_path = Path("/Users/localuser/Research/summaWorkflow_data/domain_BowAtBanff")
+cwarhm_summa_folder = os.path.abspath("../../dependencies/cwarhm-summa")
 
+### SETTINGS
+test_data_path = Path("/Users/localuser/Research/summaWorkflow_data/domain_BowAtBanff")
 # set control file to use
+control_options = utl.read_summa_workflow_control_file('control_Bow_at_Banff_test.txt')
+# copy control file to cwarhm summa folder
 fm.change_control_file_in_submodule(cwarhm_summa_folder, 'control_Bow_at_Banff_test.txt')
+# set path where results go
+results_folder_path = control_options['root_path'] + '/domain_' + control_options['domain_name']
 
 reset_test = False
 if reset_test:
@@ -32,17 +36,9 @@ if reset_test:
     fm.create_folder_structure(cwarhm_summa_folder)
 
 #%% start example
-# read control file to use with functions
-control_options = utl.read_summa_workflow_control_file(os.path.join(cwarhm_summa_folder,'0_control_files/control_Bow_at_Banff_test.txt'))
-
 #%% download data (downloads not included in example) - data specific input layer - part 1
-## the lines below are included if the test data is not available locally
+## data can be downloaded by the test_data_download.py script.
 
-## fm.run_download_ERA5_pressureLevel_paralell(cwarhm_summa_folder)
-## fm.run_download_ERA5_surfaceLevel_paralell(cwarhm_summa_folder)
-## fm.download_merit_hydro_adjusted_elevation(cwarhm_summa_folder)
-## fm.download_modis_mcd12q1_v6(cwarhm_summa_folder)
-## fm.download_soilgrids_soilclass_global(cwarhm_summa_folder)
 
 #%% process downloaded data - data specific input layer - part 2
 

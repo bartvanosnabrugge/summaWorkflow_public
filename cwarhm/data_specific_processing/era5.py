@@ -2,19 +2,363 @@
 import netCDF4 as nc4
 from pathlib import Path
 import time, os
+import math
+import cdsapi    # copernicus connection
+import calendar  # to find days per month
+import os        # to check if file already exists
+from pathlib import Path
+from shutil import copyfile
+from datetime import datetime
+import multiprocessing
 
+from cwarhm.util.util import run_in_parallel
+
+
+def round_coords_to_ERA5(coords):
+    """Round bounding box coordinates to ERA5 resolution
+
+    Note
+    ----
+    from CWARHM by Wouter Knoben
+    https://github.com/CH-Earth/CWARHM/blob/bdd5c388b7f307c6afe1228d4606c6a706fba9d7/3a_forcing/1a_download_forcing/download_ERA5_pressureLevel_annual.py#L29
+
+
+    Parameters
+    ----------
+    coords : list
+        Coordinates in the format [lat_max,lon_min,lat_min,lon_max]
+
+    Returns
+    -------
+    dl_string : str
+        rounded coordinates in format '{lat_min}/{lon_max}/{lat_max}/{lon_min}'
+    rounded_lat : list
+        [lat_max,lat_min]
+    rounded_lon : list
+        [lon_max,lon_min]
+    
+    """    
+    # Extract values
+    lon = [coords[1],coords[3]]
+    lat = [coords[2],coords[0]]
+    
+    # Round to ERA5 0.25 degree resolution
+    rounded_lon = [math.floor(lon[0]*4)/4, math.ceil(lon[1]*4)/4]
+    rounded_lat = [math.floor(lat[0]*4)/4, math.ceil(lat[1]*4)/4]
+    
+    # Find if we are still in the representative area of a different ERA5 grid cell
+    if lat[0] > rounded_lat[0]+0.125:
+        rounded_lat[0] += 0.25
+    if lon[0] > rounded_lon[0]+0.125:
+        rounded_lon[0] += 0.25
+    if lat[1] < rounded_lat[1]-0.125:
+        rounded_lat[1] -= 0.25
+    if lon[1] < rounded_lon[1]-0.125:
+        rounded_lon[1] -= 0.25
+    
+    # Make a download string
+    dl_string = '{}/{}/{}/{}'.format(rounded_lat[1],rounded_lon[0],rounded_lat[0],rounded_lon[1])
+    
+    return dl_string, rounded_lat, rounded_lon
+
+def generate_download_requests(year,bbox,path_to_save_data,target_dataset):
+    """Generate cdsapi requests for one year of ERA5 data in monthly chunks.
+
+    The request list can be downloaded by using :func:wait_for_and_download_requests .
+    The variables requested are the variables needed to run a land-surface scheme
+    (e.g. SUMMA / CLASS / MESH).
+
+
+
+    Note
+    ----
+    Using the download function requires acces to cdsapi:
+    - Registration: https://cds.climate.copernicus.eu/user/register?destination=%2F%23!%2Fhome
+    - Setup of the `cdsapi`: https://cds.climate.copernicus.eu/api-how-to
+
+    Adapted from CWARHM by Wouter Knoben
+    https://github.com/CH-Earth/CWARHM/blob/bdd5c388b7f307c6afe1228d4606c6a706fba9d7/3a_forcing/1a_download_forcing/download_ERA5_pressureLevel_annual.py#L29
+
+    and example from ECMWF
+    https://github.com/ecmwf/cdsapi/blob/master/examples/example-era5-update.py
+
+    Requesting the parameters from the pressure_level takes a long time (days rather 
+    than hours) because those parameters are stored on slow storage at ECMWF.
+
+    Parameters
+    ----------
+    year : int
+        year to download e.g. 2002
+    bbox : list
+        list of bounding box coordinates [lat_max,lon_min,lat_min,lon_max]
+    path_to_save_data : str
+        path to folder to save data in
+    target_dataset : str
+        either 'pressure_level' or 'surface_level'
+    
+    Returns
+    -------
+    request_list : list
+        list with cdsapi requests
+    download_list : list
+        list of path destinations for downloads
+    """   
+    download_list = []
+    request_list = []
+    # Find the rounded bounding box
+    coordinates,_,_ = round_coords_to_ERA5(bbox)
+    # connect to Copernicus (requires .cdsapirc file in $HOME)
+    c = cdsapi.Client(debug=True, wait_until_complete=False)
+    # --- Start the month loop
+    for month in range(1,13): # this loops through numbers 1 to 12
+       
+        # find the number of days in this month
+        daysInMonth = calendar.monthrange(year,month) 
+            
+        # compile the date string in the required format. Append 0's to the month number if needed (zfill(2))
+        date = str(year) + '-' + str(month).zfill(2) + '-01/' + \
+            str(year) + '-' + str(month).zfill(2) + '-' + str(daysInMonth[1]).zfill(2) 
+            
+        # compile the file name string
+        file_path = os.path.join(path_to_save_data,('ERA5_{}_'.format(target_dataset) + str(year) + str(month).zfill(2) + '.nc'))
+
+        # track progress
+        print('Trying to download ' + date + ' into ' + str(file_path))
+
+        # if file doesn't yet exist, download the data
+        if not os.path.isfile(file_path):
+
+            # Make sure the connection is re-tried if it fails
+            retries_max = 1
+            retries_cur = 1
+            while retries_cur <= retries_max:
+                try:
+                    # specify and request data
+                    if target_dataset == 'pressure_level':
+                        request_list.append(
+                        c.retrieve('reanalysis-era5-complete', {    # do not change this!
+                            'class': 'ea',
+                            'expver': '1',
+                            'stream': 'oper',
+                            'type': 'an',
+                            'levtype': 'ml',
+                            'levelist': '137',
+                            'param': '130/131/132/133',
+                            'date': date,
+                            'time': '00/to/23/by/1',
+                            'area': coordinates,
+                            'grid': '0.25/0.25', # Latitude/longitude grid: east-west (longitude) and north-south resolution (latitude).
+                            'format'  : 'netcdf',
+                        },)
+                        )
+                        download_list.append(file_path)
+
+                    elif target_dataset == 'surface_level':
+                        request_list.append(
+                        c.retrieve('reanalysis-era5-single-levels',{
+                                'product_type': 'reanalysis',
+                                'format': 'netcdf',
+                                'variable': [
+                                    '10m_u_component_of_wind',
+                                    '10m_v_component_of_wind',
+                                    '2m_dewpoint_temperature',
+                                    '2m_temperature',
+                                    'mean_surface_downward_long_wave_radiation_flux',                
+                                    'mean_surface_downward_short_wave_radiation_flux',
+                                    'mean_total_precipitation_rate', 
+                                    'surface_pressure',
+                                ],
+                                'date': date,
+                                'time': '00/to/23/by/1',
+                                'area': coordinates,	# North, West, South, East. Default: global
+                                'grid': '0.25/0.25',    # Latitude/longitude grid: east-west (longitude) and north-south
+                            },
+                            ))
+                        download_list.append(file_path) # file path and name
+                    else:
+                        print('No valid target. Target is either surface_level or pressure_level')
+                
+
+                except Exception as e:
+                    print('Error creating request ' + str(file_path) + ' on try ' + str(retries_cur))
+                    print(str(e))
+                    retries_cur += 1
+                    continue
+                else:
+                    break
+    return request_list, download_list
+
+def wait_for_and_download_requests(req_list,download_paths,sleep=30):
+    """loop over cdsapi request list and download when ready
+
+    Will end when all downloads are completed
+
+    Parameters
+    ----------
+    req_list : list
+        list of cdsapir requests (from :func:generate_download_requests)
+    download_paths : list
+        list of target file paths matching requests
+    sleep : int, optional
+        time to wait in seconds before checking, by default 30
+    """
+    # initialize all requests as queued
+    conditions = ["queued"]*len(req_list)
+    while any(element in ("queued", "running") for element in conditions):
+        for i,r in enumerate(req_list):
+            #sleep = 30
+            r.update()
+            reply = r.reply
+            # this is logging
+            r.info("Request ID: %s, state: %s" % (reply["request_id"], reply["state"]))
+            # change state
+            conditions[i]=reply["state"]
+
+            if reply["state"] == "completed":
+                print('start download {}'.format(download_paths[i]))
+                r.download(download_paths[i])
+                print('done downloading {}'.format(download_paths[i]))
+                conditions[i]="downloaded"
+            elif reply["state"] in ("queued", "running"):
+                r.info("Request ID: %s, sleep: %s", reply["request_id"], sleep)
+            elif reply["state"] in ("failed",):
+                r.error("Message: %s", reply["error"].get("message"))
+                r.error("Reason:  %s", reply["error"].get("reason"))
+        time.sleep(sleep)
+    # delete requests
+    for i,r in enumerate(req_list):
+        r.delete()        
+
+def download_one_era5_year(year,bbox,path_to_save_data,target_dataset):
+    """Download one year of ERA5 data in monthly chunks.
+
+    Note
+    ----
+    Adapted from CWARHM by Wouter Knoben
+    https://github.com/CH-Earth/CWARHM/blob/bdd5c388b7f307c6afe1228d4606c6a706fba9d7/3a_forcing/1a_download_forcing/download_ERA5_pressureLevel_annual.py#L29
+
+    Parameters
+    ----------
+    year : int
+        year to download e.g. 2002
+    bbox : list
+        list of bounding box coordinates [lat_max,lon_min,lat_min,lon_max]
+    path_to_save_data : str
+        path to folder to save data in
+    target_dataset : str
+        either 'pressure_level' or 'surface_level'
+    """   
+    # Find the rounded bounding box
+    coordinates,_,_ = round_coords_to_ERA5(bbox)
+    # --- Start the month loop
+    for month in range (1,13): # this loops through numbers 1 to 12
+       
+        # find the number of days in this month
+        daysInMonth = calendar.monthrange(year,month) 
+            
+        # compile the date string in the required format. Append 0's to the month number if needed (zfill(2))
+        date = str(year) + '-' + str(month).zfill(2) + '-01/' + \
+            str(year) + '-' + str(month).zfill(2) + '-' + str(daysInMonth[1]).zfill(2) 
+            
+        # compile the file name string
+        file_path = os.path.join(path_to_save_data,('ERA5_{}_'.format(target_dataset) + str(year) + str(month).zfill(2) + '.nc'))
+
+        # track progress
+        print('Trying to download ' + date + ' into ' + str(file_path))
+
+        # if file doesn't yet exist, download the data
+        if not os.path.isfile(file_path):
+
+            # Make sure the connection is re-tried if it fails
+            retries_max = 1
+            retries_cur = 1
+            while retries_cur <= retries_max:
+                try:
+
+                    # connect to Copernicus (requires .cdsapirc file in $HOME)
+                    c = cdsapi.Client()
+
+                    # specify and retrieve data
+                    if target_dataset == 'pressure_level':
+                        c.retrieve('reanalysis-era5-complete', {    # do not change this!
+                            'class': 'ea',
+                            'expver': '1',
+                            'stream': 'oper',
+                            'type': 'an',
+                            'levtype': 'ml',
+                            'levelist': '137',
+                            'param': '130/131/132/133',
+                            'date': date,
+                            'time': '00/to/23/by/1',
+                            'area': coordinates,
+                            'grid': '0.25/0.25', # Latitude/longitude grid: east-west (longitude) and north-south resolution (latitude).
+                            'format'  : 'netcdf',
+                        }, file_path)
+
+                    elif target_dataset == 'surface_level':
+                        c.retrieve('reanalysis-era5-single-levels',{
+                                'product_type': 'reanalysis',
+                                'format': 'netcdf',
+                                'variable': [
+                                    'mean_surface_downward_long_wave_radiation_flux',                
+                                    'mean_surface_downward_short_wave_radiation_flux',
+                                    'mean_total_precipitation_rate', 
+                                    'surface_pressure',
+                                ],
+                                'date': date,
+                                'time': '00/to/23/by/1',
+                                'area': coordinates,	# North, West, South, East. Default: global
+                                'grid': '0.25/0.25',    # Latitude/longitude grid: east-west (longitude) and north-south
+                            },
+                            file_path) # file path and name
+                    else:
+                        print('No valid target. Target is either surface_level or pressure_level')
+                
+                    # track progress
+                    print('Successfully downloaded ' + str(file_path))
+
+                except Exception as e:
+                    print('Error downloading ' + str(file_path) + ' on try ' + str(retries_cur))
+                    print(str(e))
+                    retries_cur += 1
+                    continue
+                else:
+                    break
+
+def run_era5_download_in_parallel(years,bbox,path_to_save_data,target_dataset):
+    """Run download_one_era5_year in parallel
+
+    Parameters
+    ----------
+    years : list
+        years to download e.g. [2002,2003,2004]
+    bbox : list
+        list of bounding box coordinates [lat_max,lon_min,lat_min,lon_max]
+    path_to_save_data : str
+        path to folder to save data in
+    target_dataset : str
+        either 'pressure_level' or 'surface_level'
+    """    
+    pool = multiprocessing.Pool()
+    outputs = [pool.apply_async(download_one_era5_year, args=(year, bbox, path_to_save_data, target_dataset)) for year in years]
+    print(outputs)
+    pool.close()
 
 def merge_era5_surface_and_pressure_level_downloads(forcingPath, mergePath, years_str):
     """Combine separate surface and pressure level downloads
     Creates a single monthly `.nc` file with SUMMA-ready variables for further processing. # Combines ERA5's `u` and
     `v` wind components into a single directionless wind vector.
 
+    Note
+    ----
+    This function is no longer needed as merging is more effective using xarray
+
     :param forcingPath: path to raw ERA5 surface and pressure level data
     :param mergePath: path to save merged ERA5 data
     :param year_str: start,end year string from control file (e.g., "2008,2013")
     """
 
-    # proessing
+    # processing
     years = [int(s) for s in years_str.split(',')]
     forcingPath = Path(forcingPath)
     mergePath = Path(mergePath)
