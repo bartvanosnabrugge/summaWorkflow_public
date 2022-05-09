@@ -247,3 +247,70 @@ def map_forcing_data(basin,forcing_data, output_dir,
     #execute EASYMORE
     # Note:  remapped forcing has the precision of float32
     esmr.nc_remapper()
+
+def add_basin_attributes_to_zonal_stats(zstats,gpd_hrus,attrs_dict = {}):
+    """Add attributes from source dataset that hydromt.raster.zonal_stats
+    was used with. It also renames the statted variable to the original variable
+    name without prefix.
+
+    ds.raster.zonal_stats calculates zonal stats for a data array but does
+    not copy any attributes. This function adds those attributes and any
+    attribut given as attrs_dict.
+
+    Parameters
+    ----------
+    zstats : xarray.DataArray
+        zonal stats data array calculated with ds.raster.zonal_stats
+    gpd_hrus : geopandas.GeoDataFrame
+        geometries that were used in ds.raster.zonal_stats calculation,
+        specifically with fields: 'center_lon','center_lat','HRU_ID'
+    attrs_dict : dict, optional
+        dictionairy with additional attributes to add, by default {}
+
+    Returns
+    -------
+    xarray.DataArray
+        zonal stats (zstats) data array with added attributes
+    """    
+    # fix names to original
+    var_names = list(zstats.keys())
+    var_names_stripped = [n.split('_mean')[0] for n in var_names]
+    zstats = zstats.rename(dict(zip(var_names, var_names_stripped)))
+    zstats = zstats.rename({'index':'subbasin'})
+    zstats['longitude'] = (['subbasin'],gpd_hrus['center_lon'])
+    zstats['latitude'] = (['subbasin'],gpd_hrus['center_lat'])
+    zstats['hruId'] = (['subbasin'],gpd_hrus['HRU_ID'])
+    #zstats['geometry'] = (['subbasin'],gpd_hrus['geometry'])
+    zstats = zstats.set_coords([ 'longitude', 'latitude','hruId'])
+    zstats.attrs = attrs_dict
+    return zstats
+
+def count_per_class(darr, gpd_shape,class_list,class_abbrev=''):
+    """Return count for each class in data array for each element in gpd_shape
+
+    Adds a column with the count of the occurence of class in class_list to gpd_shape
+    based on the geometry of gpd_shape
+
+    Parameters
+    ----------
+    darr : array.DataArray
+        data array with each grid cell representing a class listed in class_list
+    gpd_shape : geopandas.GeoDataFrame
+        geodataframe with the geometries to count over
+    class_list : list
+        list of all the classes to be counted
+    class_abbrev : str, optional
+        prefix to add to each column name, for example 'USGS_', by default ''
+
+    Returns
+    -------
+    geopandas.GeoDataFrame
+        gpd_shape with the a column added with the count of the occurence 
+        of each class in said element.
+    """    
+    for i in class_list:
+        single_class = darr.where(darr==i)
+        zstats = single_class.raster.zonal_stats(gpd_shape,'count')
+        gpd_shape['{}{}'.format(class_abbrev,i)] = zstats[darr.name+'_count'].values
+    gpd_shape = gpd_shape.loc[:, (gpd_shape != 0).any(axis=0)]
+    return gpd_shape
