@@ -27,8 +27,9 @@ control_options = utl.read_summa_workflow_control_file('control_Bow_at_Banff_tes
 results_folder_path = control_options['root_path'] + '/domain_' + control_options['domain_name']
 
 # extract test data to test path
+extract_path = control_options['root_path']
 with zipfile.ZipFile('domain_BowAtBanff_mesh.zip') as zip_ref:
-    zip_ref.extractall(results_folder_path)
+    zip_ref.extractall(extract_path)
 # read control file
 
 
