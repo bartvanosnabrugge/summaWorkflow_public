@@ -47,6 +47,26 @@ def unpack_year_range(yr_string):
     ys,ye = yr_string.split(',')
     return [y for y in range(int(ys),int(ye)+1)]
 
+def expand_home_folder_path(pstring):
+    """Expands '~' to home directory abs path
+
+    Parameters
+    ----------
+    pstring : str
+        pathlike string
+
+    Returns
+    -------
+    str
+        path with ~ expanded to home folder path
+    """    
+    # expand home dir if included as '~' in root_folder
+    if "~" in pstring:
+        results_root_path = os.path.join(*[os.path.expanduser('~')]+pstring.split('/')[1::])
+    else:
+        results_root_path = os.path.abspath( pstring )
+    return results_root_path
+
 def read_summa_workflow_control_file(workflow_control_file,comment_char='#',option_char='|'):
     """Read complete control data from the SUMMAworkflow (https://github.com/CH-Earth/summaWorkflow_public)
        format control file
@@ -73,12 +93,13 @@ def read_summa_workflow_control_file(workflow_control_file,comment_char='#',opti
             value = value.strip()
             # If value is 'default' exchange default value with default path given in comments
             if value=='default':
+                rootstring = expand_home_folder_path(control_options['root_path'])
                 # regex the default path from the comment
                 pattern = r"([^']*[^'])"
                 default_path_in_comment = re.findall(pattern,comment)[-2] #one to last, because of point at the end
                 # default path is always of the form root_path/domain_[name]/[last_part_of_path]
                 # replace 'root_path' with actual root_path from control
-                value = default_path_in_comment.replace('root_path',control_options['root_path'])
+                value = default_path_in_comment.replace('root_path',rootstring)
                 # replace '[name]' with domain name from control file
                 value = value.replace('[name]',control_options['domain_name'])
                 print('value')

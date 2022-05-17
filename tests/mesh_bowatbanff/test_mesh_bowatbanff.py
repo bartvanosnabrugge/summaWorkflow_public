@@ -29,7 +29,7 @@ pstring = control_options['root_path']
 if "~" in pstring:
     results_root_path = os.path.join(*[os.path.expanduser('~')]+pstring.split('/')[1::])
 else:
-    results_root_path = os.path.abspath( control_options['root_path'] + '/domain_' + control_options['domain_name'] )
+    results_root_path = os.path.abspath( control_options['root_path'])
 results_folder_path = results_root_path + '/domain_' + control_options['domain_name']
 
 # extract test data to test path
