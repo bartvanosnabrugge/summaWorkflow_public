@@ -126,3 +126,11 @@ mmpf = mesh.MeshMinMaxParameterTxtFile(os.path.join(control_options['settings_me
 parf = mesh.MeshParameterTxtFile(os.path.join(control_options['settings_mesh_path'],'MESH_parameters.txt'),
                                 pd.DataFrame(np.array([['!>','DTMINUSR'],['RTE time-step [s]',300.0]]).transpose()
                                 ))
+
+#### to derive GRU forcing from HRU forcing:
+#gpd_hru = gpd.read_file('/Users/ayx374/Documents/project/chwarm_test_results/domain_BowAtBanff_mesh/shapefiles/catchment/bow_distributed_elevation_zone.shp')
+#gru_groups = gpd_hru.groupby('GRU_ID')
+#weights = []
+#for group_name, df_group in gru_groups:
+#    weights = weights +( list(df_group['HRU_area']/df_group['HRU_area'].sum()) )
+#gpd_hru['GRU_weight'] = weights
