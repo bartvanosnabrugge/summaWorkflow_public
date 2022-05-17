@@ -6,11 +6,11 @@
 
 
 # Modeling domain settings
-root_path                   | /globalhome/ayx374/HPC/cwarhm_test_results      # Root folder where data will be stored.
+root_path                   | ~/cwarhm_test_results      # Root folder where data will be stored.
 domain_name                 | BowAtBanff_mesh                                  # Used as part of the root folder name for the prepared data.
 
 
-# Shapefile settings - SUMMA catchment file
+# Shapefile settings - SUMMA catchment fileme
 catchment_shp_path          | default                                     # If 'default', uses 'root_path/domain_[name]/shapefiles/catchment'.
 catchment_shp_name          | bow_distributed_elevation_zone.shp          # Name of the catchment shapefile. Requires extension '.shp'.
 catchment_shp_gruid         | GRU_ID                                      # Name of the GRU ID column (can be any numeric value, HRU's within a single GRU have the same GRU ID).
