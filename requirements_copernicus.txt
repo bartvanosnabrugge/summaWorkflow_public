@@ -1,0 +1,11 @@
+--no-index
+xarray
+netCDF4
+dask
+zarr
+pygeos
+numba
+fiona
+geopandas
+imageio
+sklearn
