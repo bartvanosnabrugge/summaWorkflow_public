@@ -6,7 +6,7 @@
 
 
 # Modeling domain settings
-root_path                   | /Users/ayx374/Documents/project/chwarm_test_results      # Root folder where data will be stored.
+root_path                   | /globalhome/ayx374/HPC/cwarhm_test_results      # Root folder where data will be stored.
 domain_name                 | BowAtBanff_mesh                                  # Used as part of the root folder name for the prepared data.
 
 
