@@ -19,17 +19,22 @@ import cwarhm.util.util as utl
 
 # set paths
 # results_folder_path: path to save the results (and to extract the test data to)
-# NOTE: results_folder_path needs to be set here AND in control_Bow_at_Banff_test.txt
+# NOTE: results_folder_path needs to be set in control_Bow_at_Banff_test.txt
 # as root_folder
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 control_options = utl.read_summa_workflow_control_file('control_Bow_at_Banff_test.txt')
 
-results_folder_path = control_options['root_path'] + '/domain_' + control_options['domain_name']
+pstring = control_options['root_path']
+# expand home dir if included as '~' in root_folder
+if "~" in pstring:
+    results_root_path = os.path.join(*[os.path.expanduser('~')]+pstring.split('/')[1::])
+else:
+    results_root_path = os.path.abspath( control_options['root_path'] + '/domain_' + control_options['domain_name'] )
+results_folder_path = results_root_path + '/domain_' + control_options['domain_name']
 
 # extract test data to test path
-extract_path = control_options['root_path']
 with zipfile.ZipFile('domain_BowAtBanff_mesh.zip') as zip_ref:
-    zip_ref.extractall(extract_path)
+    zip_ref.extractall(results_root_path)
 # read control file
 
 
