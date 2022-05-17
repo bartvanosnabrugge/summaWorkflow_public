@@ -6,88 +6,8 @@ import rasterio
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-from rasterstats import zonal_stats
 import datetime
 from easymore.easymore import easymore
-
-def hru_zonal_statistics(input_raster: str,input_shape: str,
-    input_ddb: str,out_parameter: str):
-    """WIP: from MESH workflow see
-    https://wiki.usask.ca/display/MESH/MESH+vector-based+workflow+using+EASYMORE#MESHvectorbasedworkflowusingEASYMORE-2.3.Calculatelandcoverzonalhistogram
-
-    :param input_raster: _description_
-    :type input_raster: str
-    :param input_shape: _description_
-    :type input_shape: str
-    :param input_ddb: _description_
-    :type input_ddb: str
-    :param out_parameter: _description_
-    :type out_parameter: str
-    """    
-
-    #%% reading the inputs 
-    gridded_class_data = rasterio.open(input_raster)
-    gru_shapes = gpd.read_file(input_shape)
-    drainage_db = xr.open_dataset(input_ddb)
-
-    # %% extract indices of lc based on the drainage database
-    n = len(drainage_db.hruId)
-    ind = []
-    hruid =  drainage_db.variables['hruId']
-
-    for i in range(n):
-        fid = np.where(np.int32(gru_shapes['COMID'].values) == hruid[i].values)[0]
-        ind = np.append(ind, fid)
-
-    ind = np.int32(ind)    
-
-    #%% Read the raster values
-    sand = gridded_class_data.read(1)
-
-    # Get the affine
-    affine = gridded_class_data.transform
-
-    #%% calculate zonal status 
-    zs = zonal_stats(gru_shapes, sand, affine=affine, stats='majority')
-    zs  = pd.DataFrame(zs)
-
-    # reorder the zonal stats from Rank1 to RankN
-    zs_reorder = zs.values[ind] 
-
-    # %% convert the distributed parameters as a dataset and save it as netcdf
-    lon = drainage_db['lon'].values
-    lat = drainage_db['lat'].values
-    tt = drainage_db['time'].values
-
-    dist_param =  xr.Dataset(
-        {
-            "GRU": (["subbasin", "gru"], zs_reorder),
-        },
-        coords={
-            "lon": (["subbasin"], lon),
-            "lat": (["subbasin"], lat),
-        },
-    )
-
-    # meta data attributes 
-    dist_param.attrs['Conventions'] = 'CF-1.6'
-    dist_param.attrs['history']     = 'Created ' + datetime.now().strftime('%Y/%m/%d %H:%M:%S')
-    dist_param.attrs['featureType'] = 'point'          
-
-    # editing lat attribute
-    dist_param['lat'].attrs['standard_name'] = 'latitude'
-    dist_param['lat'].attrs['units'] = 'degrees_north'
-    dist_param['lat'].attrs['axis'] = 'Y'
-    
-    # editing lon attribute
-    dist_param['lon'].attrs['standard_name'] = 'longitude'
-    dist_param['lon'].attrs['units'] = 'degrees_east'
-    dist_param['lon'].attrs['axis'] = 'X'
-
-    # coordinate system
-    dist_param['crs'] = drainage_db['crs'].copy()
-
-    dist_param.to_netcdf(out_parameter)
 
 def hru_fraction_from_counts(basin_class_counts: gpd.geodataframe.GeoDataFrame):
     """calculate fractions based on counts across classes in polygon
