@@ -22,13 +22,14 @@ import cwarhm.util.util as utl
 # NOTE: results_folder_path needs to be set here AND in control_Bow_at_Banff_test.txt
 # as root_folder
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
-results_folder_path = Path("/Users/ayx374/Documents/project/chwarm_test_results")
+control_options = utl.read_summa_workflow_control_file('control_Bow_at_Banff_test.txt')
+
+results_folder_path = control_options['root_path'] + '/domain_' + control_options['domain_name']
 
 # extract test data to test path
 with zipfile.ZipFile('domain_BowAtBanff_mesh.zip') as zip_ref:
     zip_ref.extractall(results_folder_path)
 # read control file
-control_options = utl.read_summa_workflow_control_file('control_Bow_at_Banff_test.txt')
 
 
 #%%
